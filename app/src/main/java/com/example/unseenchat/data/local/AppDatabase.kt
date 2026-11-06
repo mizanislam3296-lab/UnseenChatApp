@@ -14,11 +14,12 @@ object MediaType {
     tableName = "chat_messages",
     indices = [
         Index(value = ["conversationKey", "timestamp"]),
-        Index(value = ["conversationKey", "senderName", "messageText", "timestamp"], unique = true)
+        Index(value = ["conversationKey", "senderName", "messageText", "timestamp"])
     ]
 )
 data class ChatMessageEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
     val conversationKey: String,
     val packageName: String,
     val senderName: String,
@@ -29,35 +30,70 @@ data class ChatMessageEntity(
     val localMediaPath: String? = null
 )
 
+// প্ল্যাটফর্ম অনুযায়ী চ্যাট তালিকার সামারি মডেল
+data class ConversationSummary(
+    val conversationKey: String,
+    val packageName: String,
+    val senderName: String,
+    val lastMessage: String,
+    val timestamp: Long
+)
+
 @Dao
-interface ChatDao { 
+interface ChatDao {
+
+    // প্ল্যাটফর্ম (Package Name) অনুযায়ী আলাদা আলাদা ব্যক্তির চ্যাট তালিকা
+    @Query("""
+        SELECT conversationKey, packageName, senderName, 
+               messageText AS lastMessage, 
+               MAX(timestamp) AS timestamp 
+        FROM chat_messages 
+        WHERE packageName = :packageName 
+        GROUP BY conversationKey 
+        ORDER BY timestamp DESC
+    """)
+    fun getConversationsByPackage(packageName: String): Flow<List<ConversationSummary>>
+
+    // নির্দিষ্ট ব্যক্তির সব মেসেজ
+    @Query("SELECT * FROM chat_messages WHERE conversationKey = :convKey ORDER BY timestamp ASC")
+    fun getMessagesByConversation(convKey: String): Flow<List<ChatMessageEntity>>
+
+    @Query("SELECT * FROM chat_messages WHERE conversationKey = :conversationKey ORDER BY timestamp ASC")
+    fun getMessagesForConversation(conversationKey: String): Flow<List<ChatMessageEntity>>
+
+    // সব মেসেজ পাওয়ার কুয়েরি
     @Query("SELECT * FROM chat_messages ORDER BY timestamp ASC")
     fun getAllMessages(): Flow<List<ChatMessageEntity>>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertMessage(message: ChatMessageEntity): Long
 
-    @Query("SELECT * FROM chat_messages WHERE conversationKey = :convKey ORDER BY timestamp ASC")
-    fun getMessagesByConversation(convKey: String): Flow<List<ChatMessageEntity>>
-
+    // ডুপ্লিকেট মেসেজ যাচাই
     @Query("""
         SELECT COUNT(*) FROM chat_messages 
         WHERE conversationKey = :convKey 
         AND messageText = :text 
         AND ABS(timestamp - :time) < 2000
     """)
-    suspend fun isDuplicateMessage(convKey: String, text: String, time: Long): Int
+    suspend fun isDuplicateMessage(convKey: String, text: String, time: Long): Boolean
 
+    // ভয়েস মেসেজ আপডেট কুয়েরি
     @Query("""
         UPDATE chat_messages 
-        SET localMediaPath = :filePath, mediaType = 'VOICE'
+        SET localMediaPath = :filePath, mediaType = 'VOICE' 
         WHERE id = (
             SELECT id FROM chat_messages 
-            WHERE packageName = :pkgName AND mediaType = 'VOICE' AND localMediaPath IS NULL 
+            WHERE packageName = :pkgName AND mediaType = 'VOICE' 
             ORDER BY timestamp DESC LIMIT 1
         )
     """)
-    suspend fun attachVoiceFileToLatestPendingMessage(pkgName: String, filePath: String)
+    suspend fun attachVoiceFileToLatestPendingMessage(pkgName: String, filePath: String): Int
+
+    @Query("DELETE FROM chat_messages WHERE conversationKey = :conversationKey")
+    suspend fun deleteConversation(conversationKey: String)
+
+    @Query("DELETE FROM chat_messages")
+    suspend fun clearAllMessages()
 }
 
 @Database(entities = [ChatMessageEntity::class], version = 1, exportSchema = false)
@@ -70,14 +106,13 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
-                INSTANCE ?: Room.databaseBuilder(
+                val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "unseen_chat_db"
-                )
-                    .fallbackToDestructiveMigration()
-                    .build()
-                    .also { INSTANCE = it }
+                    "unseen_chat_database"
+                ).fallbackToDestructiveMigration().build()
+                INSTANCE = instance
+                instance
             }
         }
     }
