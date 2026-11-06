@@ -2,40 +2,64 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#F5F7FB">
+    android:background="#EFEAE2"
+    android:orientation="vertical">
 
+    <!-- চ্যাট হেডার -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:background="#00A884"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="16dp">
+
+        <TextView
+            android:id="@+id/tvChatTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Chat"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- মেসেজ লিস্ট -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvChatMessages"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:padding="8dp"
-        android:clipToPadding="false" />
+        android:clipToPadding="false"
+        android:padding="8dp" />
 
+    <!-- রিপ্লাই ইনপুট বার -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="8dp"
         android:background="#FFFFFF"
-        android:elevation="4dp">
+        android:elevation="4dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="8dp">
 
         <EditText
-            android:id="@+id/etReplyInput"
+            android:id="@+id/etReplyMessage"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:background="@android:color/transparent"
             android:hint="অফলাইনে থেকেই রিপ্লাই লিখুন..."
-            android:padding="12dp"
-            android:background="@android:drawable/edit_text"
-            android:maxLines="4" />
+            android:padding="10dp"
+            android:textColor="#111111"
+            android:textSize="15sp" />
 
         <Button
             android:id="@+id/btnSendReply"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:text="Send" />
+            android:backgroundTint="#00A884"
+            android:text="SEND"
+            android:textColor="#FFFFFF" />
     </LinearLayout>
+
 </LinearLayout>
