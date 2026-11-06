@@ -1,10 +1,6 @@
 package com.example.unseenchat.service
 
 import android.app.Notification
-import android.graphics.Bitmap
-import android.net.Uri
-import android.os.Build
-import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationCompat
@@ -13,28 +9,25 @@ import com.example.unseenchat.data.cache.ReplyActionPayload
 import com.example.unseenchat.data.local.AppDatabase
 import com.example.unseenchat.data.local.ChatMessageEntity
 import com.example.unseenchat.data.local.MediaType
-import com.example.unseenchat.util.MediaStorageManager
-import com.example.unseenchat.util.WhatsAppVoiceObserverManager
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 class UnseenNotificationService : NotificationListenerService() {
 
-    private val serviceJob = SupervisorJob()
-    private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
-    private var voiceObserverManager: WhatsAppVoiceObserverManager? = null
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val database by lazy { AppDatabase.getInstance(applicationContext) }
 
-    private val supportedPackages = setOf(
-        "com.whatsapp",
-        "com.facebook.orca",
-        "org.telegram.messenger",
-        "com.instagram.android"
-    )
-
-    override fun onCreate() {
-        super.onCreate()
-        voiceObserverManager = WhatsAppVoiceObserverManager(applicationContext, serviceScope).also {
-            it.startWatching()
-        }
+    companion object {
+        // সমর্থিত সোশ্যাল প্ল্যাটফর্মসমূহ
+        val SUPPORTED_PACKAGES = setOf(
+            "com.whatsapp",            // WhatsApp
+            "com.whatsapp.w4b",        // WhatsApp Business
+            "com.facebook.orca",       // Messenger
+            "org.telegram.messenger",  // Telegram
+            "com.instagram.android"    // Instagram
+        )
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
@@ -42,111 +35,106 @@ class UnseenNotificationService : NotificationListenerService() {
         if (sbn == null) return
 
         val packageName = sbn.packageName
-        if (packageName !in supportedPackages) return
+        if (!SUPPORTED_PACKAGES.contains(packageName)) return
 
         val notification = sbn.notification ?: return
-        if ((notification.flags and Notification.FLAG_ONGOING_EVENT) != 0) return
-        if (NotificationCompat.isGroupSummary(notification)) return
-
         val extras = notification.extras ?: return
-        val sender = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim() ?: return
-        val messageText = (extras.getCharSequence(Notification.EXTRA_BIG_TEXT)
-            ?: extras.getCharSequence(Notification.EXTRA_TEXT))?.toString()?.trim() ?: return
 
-        val conversationKey = "${packageName}_${sender}"
-        val postTime = sbn.postTime
+        val rawTitle = extras.getString(Notification.EXTRA_TITLE) ?: ""
+        if (rawTitle.isBlank()) return
+        val title = rawTitle.trim()
 
-        extractAndCacheReplyAction(notification, conversationKey)
+        // প্ল্যাটফর্ম ও প্রেরকের নাম দিয়ে নির্দিষ্ট Conversation Key তৈরি
+        val conversationKey = "${packageName}_${title}"
 
-        val extractedMediaUri = extractMessagingStyleMedia(notification)
-        val extractedBitmap = extractPictureBitmap(extras)
+        // ডাইরেক্ট রিপ্লাই কি-ক্যাশ করা
+        cacheDirectReply(conversationKey, notification)
+
+        // MessagingStyle থেকে একের পর এক আসা সব মেসেজ নিষ্কাশন (যাতে কোনো মেসেজ মিস না হয়)
+        val messagingStyle = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
 
         serviceScope.launch {
-            val dao = AppDatabase.getInstance(applicationContext).chatDao()
-            if (dao.isDuplicateMessage(conversationKey, messageText, postTime) > 0) return@launch
+            if (messagingStyle != null && messagingStyle.messages.isNotEmpty()) {
+                for (msg in messagingStyle.messages) {
+                    val text = msg.text?.toString()?.trim() ?: continue
+                    if (text.isEmpty()) continue
 
-            var savedMediaPath: String? = null
-            var detectedMediaType = MediaType.TEXT
+                    val sender = msg.person?.name?.toString()?.trim()?.takeIf { it.isNotEmpty() } ?: title
+                    val time = if (msg.timestamp > 0) msg.timestamp else System.currentTimeMillis()
+                    val mediaType = if (text.contains("Voice message", ignoreCase = true) || text.contains("ভয়েস", ignoreCase = true)) {
+                        MediaType.VOICE
+                    } else {
+                        MediaType.TEXT
+                    }
 
-            if (extractedMediaUri != null) {
-                val (uri, mime) = extractedMediaUri
-                savedMediaPath = MediaStorageManager.saveFromContentUri(applicationContext, uri, mime)
-                detectedMediaType = when {
-                    mime?.startsWith("image/") == true -> MediaType.IMAGE
-                    mime?.startsWith("audio/") == true -> MediaType.VOICE
-                    else -> MediaType.IMAGE
+                    if (!database.chatDao().isDuplicateMessage(conversationKey, text, time)) {
+                        val entity = ChatMessageEntity(
+                            conversationKey = conversationKey,
+                            packageName = packageName,
+                            senderName = sender,
+                            messageText = text,
+                            timestamp = time,
+                            isOutgoing = false,
+                            mediaType = mediaType
+                        )
+                        database.chatDao().insertMessage(entity)
+                    }
                 }
-            } else if (extractedBitmap != null) {
-                savedMediaPath = MediaStorageManager.saveFromBitmap(applicationContext, extractedBitmap)
-                detectedMediaType = MediaType.IMAGE
-            } else if (isVoiceMessageNotification(messageText)) {
-                detectedMediaType = MediaType.VOICE
-            }
+            } else {
+                // সাধারণ সিঙ্গেল মেসেজ ফলব্যাক
+                val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
+                if (!text.isNullOrBlank()) {
+                    val time = notification.`when`.takeIf { it > 0 } ?: System.currentTimeMillis()
+                    val mediaType = if (text.contains("Voice message", ignoreCase = true) || text.contains("ভয়েস", ignoreCase = true)) {
+                        MediaType.VOICE
+                    } else {
+                        MediaType.TEXT
+                    }
 
-            dao.insertMessage(
-                ChatMessageEntity(
-                    conversationKey = conversationKey,
-                    packageName = packageName,
-                    senderName = sender,
-                    messageText = messageText,
-                    timestamp = postTime,
-                    isOutgoing = false,
-                    mediaType = detectedMediaType,
-                    localMediaPath = savedMediaPath
-                )
-            )
+                    if (!database.chatDao().isDuplicateMessage(conversationKey, text, time)) {
+                        val entity = ChatMessageEntity(
+                            conversationKey = conversationKey,
+                            packageName = packageName,
+                            senderName = title,
+                            messageText = text,
+                            timestamp = time,
+                            isOutgoing = false,
+                            mediaType = mediaType
+                        )
+                        database.chatDao().insertMessage(entity)
+                    }
+                }
+            }
         }
     }
 
-    private fun extractAndCacheReplyAction(notification: Notification, conversationKey: String) {
-        val actionCount = NotificationCompat.getActionCount(notification)
-        for (i in 0 until actionCount) {
+    private fun cacheDirectReply(conversationKey: String, notification: Notification) {
+        val actionsCount = NotificationCompat.getActionCount(notification)
+        for (i in 0 until actionsCount) {
             val action = NotificationCompat.getAction(notification, i) ?: continue
             val remoteInputs = action.remoteInputs
-            val actionIntent = action.actionIntent
-
-            if (!remoteInputs.isNullOrEmpty() && actionIntent != null) {
-                ReplyActionCache.putReplyAction(
-                    conversationKey = conversationKey,
-                    payload = ReplyActionPayload(
-                        pendingIntent = actionIntent,
-                        remoteInputs = remoteInputs
-                    )
+            if (!remoteInputs.isNullOrEmpty() && action.actionIntent != null) {
+                val payload = ReplyActionPayload(
+                    pendingIntent = action.actionIntent,
+                    remoteInputs = remoteInputs
                 )
-                break
+                ReplyActionCache.putReplyAction(conversationKey, payload)
+                return
             }
         }
-    }
 
-    private fun extractMessagingStyleMedia(notification: Notification): Pair<Uri, String?>? {
-        val messagingStyle = NotificationCompat.MessagingStyle
-            .extractMessagingStyleFromNotification(notification) ?: return null
-
-        val lastMessage = messagingStyle.messages.lastOrNull() ?: return null
-        val uri = lastMessage.dataUri ?: return null
-        return Pair(uri, lastMessage.dataMimeType)
-    }
-
-    @Suppress("DEPRECATION")
-    private fun extractPictureBitmap(extras: Bundle): Bitmap? {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            extras.getParcelable(Notification.EXTRA_PICTURE, Bitmap::class.java)
-        } else {
-            extras.getParcelable(Notification.EXTRA_PICTURE) as? Bitmap
+        // WearableExtender ফলব্যাক
+        val wearableExtender = NotificationCompat.WearableExtender(notification)
+        for (action in wearableExtender.actions) {
+            val remoteInputs = action.remoteInputs
+            if (!remoteInputs.isNullOrEmpty() && action.actionIntent != null) {
+                val payload = ReplyActionPayload(
+                    pendingIntent = action.actionIntent,
+                    remoteInputs = remoteInputs
+                )
+                ReplyActionCache.putReplyAction(conversationKey, payload)
+                return
+            }
         }
-    }
-
-    private fun isVoiceMessageNotification(text: String): Boolean {
-        val lower = text.lowercase()
-        return lower.contains("voice message") ||
-                lower.contains("audio") ||
-                text.contains("🎤") ||
-                lower.contains("ভয়েস মেসেজ")
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        voiceObserverManager?.stopWatching()
-        serviceScope.cancel()
     }
 }
