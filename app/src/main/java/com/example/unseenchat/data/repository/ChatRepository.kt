@@ -5,16 +5,15 @@ import com.example.unseenchat.data.cache.ReplyActionCache
 import com.example.unseenchat.data.cache.ReplyResult
 import com.example.unseenchat.data.local.ChatDao
 import com.example.unseenchat.data.local.ChatMessageEntity
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.withContext
 
 class ChatRepository(
     private val chatDao: ChatDao,
-    private val appContext: Context
+    private val context: Context
 ) {
-    fun observeMessages(conversationKey: String): Flow<List<ChatMessageEntity>> {
-        return chatDao.getMessagesByConversation(conversationKey)
+    // যেকোনো কন্টাক্ট থেকে আসা সব মেসেজ স্ক্রিনে পাওয়ার জন্য
+    fun observeAllMessages(): Flow<List<ChatMessageEntity>> {
+        return chatDao.getAllMessages()
     }
 
     suspend fun sendReply(
@@ -22,25 +21,19 @@ class ChatRepository(
         packageName: String,
         senderName: String,
         replyText: String
-    ): ReplyResult = withContext(Dispatchers.IO) {
-        val result = ReplyActionCache.executeDirectReply(
-            context = appContext,
-            conversationKey = conversationKey,
-            replyText = replyText
-        )
-
+    ): ReplyResult {
+        val result = ReplyActionCache.executeReply(conversationKey, replyText, context)
         if (result is ReplyResult.Success) {
-            chatDao.insertMessage(
-                ChatMessageEntity(
-                    conversationKey = conversationKey,
-                    packageName = packageName,
-                    senderName = senderName,
-                    messageText = replyText,
-                    timestamp = System.currentTimeMillis(),
-                    isOutgoing = true
-                )
+            val outgoingMessage = ChatMessageEntity(
+                conversationKey = conversationKey,
+                packageName = packageName,
+                senderName = senderName,
+                messageText = replyText,
+                timestamp = System.currentTimeMillis(),
+                isOutgoing = true
             )
+            chatDao.insertMessage(outgoingMessage)
         }
-        result
+        return result
     }
 }
