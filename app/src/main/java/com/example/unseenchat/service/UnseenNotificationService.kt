@@ -50,7 +50,7 @@ class UnseenNotificationService : NotificationListenerService() {
         // ডাইরেক্ট রিপ্লাই কি-ক্যাশ করা
         cacheDirectReply(conversationKey, notification)
 
-        // MessagingStyle থেকে একের পর এক আসা সব মেসেজ নিষ্কাশন (যাতে কোনো মেসেজ মিস না হয়)
+        // MessagingStyle থেকে একাধিক মেসেজ পার্স করা
         val messagingStyle = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
 
         serviceScope.launch {
@@ -81,7 +81,7 @@ class UnseenNotificationService : NotificationListenerService() {
                     }
                 }
             } else {
-                // সাধারণ সিঙ্গেল মেসেজ ফলব্যাক
+                // সাধারণ নোটিফিকেশন ফলব্যাক
                 val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
                 if (!text.isNullOrBlank()) {
                     val time = notification.`when`.takeIf { it > 0 } ?: System.currentTimeMillis()
@@ -112,10 +112,11 @@ class UnseenNotificationService : NotificationListenerService() {
         val actionsCount = NotificationCompat.getActionCount(notification)
         for (i in 0 until actionsCount) {
             val action = NotificationCompat.getAction(notification, i) ?: continue
+            val safePendingIntent = action.actionIntent ?: continue
             val remoteInputs = action.remoteInputs
-            if (!remoteInputs.isNullOrEmpty() && action.actionIntent != null) {
+            if (!remoteInputs.isNullOrEmpty()) {
                 val payload = ReplyActionPayload(
-                    pendingIntent = action.actionIntent,
+                    pendingIntent = safePendingIntent,
                     remoteInputs = remoteInputs
                 )
                 ReplyActionCache.putReplyAction(conversationKey, payload)
@@ -126,10 +127,11 @@ class UnseenNotificationService : NotificationListenerService() {
         // WearableExtender ফলব্যাক
         val wearableExtender = NotificationCompat.WearableExtender(notification)
         for (action in wearableExtender.actions) {
+            val safePendingIntent = action.actionIntent ?: continue
             val remoteInputs = action.remoteInputs
-            if (!remoteInputs.isNullOrEmpty() && action.actionIntent != null) {
+            if (!remoteInputs.isNullOrEmpty()) {
                 val payload = ReplyActionPayload(
-                    pendingIntent = action.actionIntent,
+                    pendingIntent = safePendingIntent,
                     remoteInputs = remoteInputs
                 )
                 ReplyActionCache.putReplyAction(conversationKey, payload)
