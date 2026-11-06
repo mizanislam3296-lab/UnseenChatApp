@@ -113,4 +113,20 @@ class ChatActivity : AppCompatActivity() {
             if (replyText.isNotEmpty()) {
                 if (target != null) {
                     viewModel.sendDirectReply(
-                        
+                        conversationKey = target.conversationKey,
+                        packageName = target.packageName,
+                        senderName = target.senderName,
+                        replyText = replyText
+                    )
+                } else {
+                    Toast.makeText(this, "রিপ্লাই দেওয়ার মতো কোনো ইনকামিং মেসেজ নেই", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        chatAdapter.releasePlayer()
+    }
+}
