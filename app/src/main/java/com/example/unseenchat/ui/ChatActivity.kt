@@ -4,9 +4,9 @@ import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
-import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -24,20 +24,20 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var etReplyInput: EditText
     private lateinit var btnSendReply: Button
     private lateinit var rvChatMessages: RecyclerView
+    private lateinit var viewModel: ChatViewModel
 
     private val defaultConversationKey = "com.whatsapp_DemoUser"
     private val defaultPackageName = "com.whatsapp"
     private val defaultSenderName = "DemoUser"
 
-    private val viewModel: ChatViewModel by viewModels {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContentView(R.layout.activity_chat)
+
         val database = AppDatabase.getInstance(applicationContext)
         val repository = ChatRepository(database.chatDao(), applicationContext)
-        ChatViewModelFactory(repository, defaultConversationKey)
-    }
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate()
-        setContentView(R.layout.activity_chat)
+        val factory = ChatViewModelFactory(repository, defaultConversationKey)
+        viewModel = ViewModelProvider(this, factory)[ChatViewModel::class.java]
 
         checkNotificationPermission()
         initViews()
