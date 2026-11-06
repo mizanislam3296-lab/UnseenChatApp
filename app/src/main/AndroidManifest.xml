@@ -3,9 +3,10 @@
     package="com.example.unseenchat">
 
     <!-- WhatsApp Voice Note ও Media ফোল্ডার পর্যবেক্ষণের পারমিশন -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -15,8 +16,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar">
 
+        <!-- ১. মূল স্ক্রিন (প্ল্যাটফর্ম ট্যাব ও চ্যাট তালিকা) -->
         <activity
-            android:name=".ui.ChatActivity"
+            android:name=".ui.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -24,17 +26,22 @@
             </intent-filter>
         </activity>
 
-        <!-- মূল নোটিফিকেশন লিসেনার সার্ভিস -->
+        <!-- ২. নির্দিষ্ট ব্যক্তির সাথে চ্যাট স্ক্রিন -->
+        <activity
+            android:name=".ui.ChatActivity"
+            android:exported="false" />
+
+        <!-- ৩. নোটিফিকেশন লিসেনার সার্ভিস -->
         <service
             android:name=".service.UnseenNotificationService"
             android:label="Unseen Direct Reply Service"
-            android:exported="true"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
 
     </application>
-</manifest>
 
+</manifest>
