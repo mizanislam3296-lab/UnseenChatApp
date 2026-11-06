@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.unseenchat.R
 import com.example.unseenchat.data.cache.ReplyResult
 import com.example.unseenchat.data.local.AppDatabase
+import com.example.unseenchat.data.local.ChatMessageEntity
 import com.example.unseenchat.data.repository.ChatRepository
 import com.example.unseenchat.util.NotificationPermissionHelper
 import kotlinx.coroutines.launch
@@ -26,9 +27,7 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var rvChatMessages: RecyclerView
     private lateinit var viewModel: ChatViewModel
 
-    private val defaultConversationKey = "com.whatsapp_DemoUser"
-    private val defaultPackageName = "com.whatsapp"
-    private val defaultSenderName = "DemoUser"
+    private var latestMessage: ChatMessageEntity? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,7 +35,7 @@ class ChatActivity : AppCompatActivity() {
 
         val database = AppDatabase.getInstance(applicationContext)
         val repository = ChatRepository(database.chatDao(), applicationContext)
-        val factory = ChatViewModelFactory(repository, defaultConversationKey)
+        val factory = ChatViewModelFactory(repository)
         viewModel = ViewModelProvider(this, factory)[ChatViewModel::class.java]
 
         checkNotificationPermission()
@@ -49,7 +48,7 @@ class ChatActivity : AppCompatActivity() {
     private fun checkNotificationPermission() {
         if (!NotificationPermissionHelper.isNotificationAccessGranted(this)) {
             val intent = NotificationPermissionHelper.createNotificationSettingsIntent(this)
-            Toast.makeText(this, "নোটিফিকেশন সেভ করতে পারমিশন অন করুন", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "মেসেজ পড়তে নোটিফিকেশন অ্যাক্সেস চালু করুন", Toast.LENGTH_LONG).show()
             startActivity(intent)
         }
     }
@@ -76,6 +75,7 @@ class ChatActivity : AppCompatActivity() {
                     viewModel.messages.collect { messageList ->
                         chatAdapter.submitList(messageList) {
                             if (messageList.isNotEmpty()) {
+                                latestMessage = messageList.lastOrNull { !it.isOutgoing }
                                 rvChatMessages.scrollToPosition(messageList.size - 1)
                             }
                         }
@@ -90,7 +90,7 @@ class ChatActivity : AppCompatActivity() {
                                 Toast.makeText(this@ChatActivity, "রিপ্লাই সফলভাবে পাঠানো হয়েছে!", Toast.LENGTH_SHORT).show()
                             }
                             is ReplyResult.SessionExpired -> {
-                                Toast.makeText(this@ChatActivity, "সেশন শেষ হয়েছে, নতুন নোটিফিকেশনের অপেক্ষা করুন", Toast.LENGTH_LONG).show()
+                                Toast.makeText(this@ChatActivity, "সেশন শেষ হয়েছে, নতুন মেসেজের অপেক্ষা করুন", Toast.LENGTH_LONG).show()
                             }
                             is ReplyResult.ActionNotFound -> {
                                 Toast.makeText(this@ChatActivity, "ডাইরেক্ট রিপ্লাই অ্যাকশন পাওয়া যায়নি", Toast.LENGTH_SHORT).show()
@@ -108,18 +108,9 @@ class ChatActivity : AppCompatActivity() {
     private fun setupListeners() {
         btnSendReply.setOnClickListener {
             val replyText = etReplyInput.text.toString().trim()
-            if (replyText.isNotEmpty()) {
-                viewModel.sendDirectReply(
-                    packageName = defaultPackageName,
-                    senderName = defaultSenderName,
-                    replyText = replyText
-                )
-            }
-        }
-    }
+            val target = latestMessage
 
-    override fun onDestroy() {
-        super.onDestroy()
-        chatAdapter.releasePlayer()
-    }
-}
+            if (replyText.isNotEmpty()) {
+                if (target != null) {
+                    viewModel.sendDirectReply(
+                        
