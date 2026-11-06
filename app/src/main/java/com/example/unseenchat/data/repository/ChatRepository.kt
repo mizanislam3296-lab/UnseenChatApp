@@ -11,7 +11,7 @@ class ChatRepository(
     private val chatDao: ChatDao,
     private val context: Context
 ) {
-    // যেকোনো কন্টাক্ট থেকে আসা সব মেসেজ স্ক্রিনে পাওয়ার জন্য
+    // সব মেসেজ পাওয়ার জন্য
     fun observeAllMessages(): Flow<List<ChatMessageEntity>> {
         return chatDao.getAllMessages()
     }
@@ -22,7 +22,8 @@ class ChatRepository(
         senderName: String,
         replyText: String
     ): ReplyResult {
-        val result = ReplyActionCache.executeReply(conversationKey, replyText, context)
+        // সঠিক মেথড ও প্যারামিটার কল
+        val result = ReplyActionCache.executeDirectReply(context, conversationKey, replyText)
         if (result is ReplyResult.Success) {
             val outgoingMessage = ChatMessageEntity(
                 conversationKey = conversationKey,
