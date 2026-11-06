@@ -30,7 +30,10 @@ data class ChatMessageEntity(
 )
 
 @Dao
-interface ChatDao {
+interface ChatDao { 
+    @Query("SELECT * FROM chat_messages ORDER BY timestamp ASC")
+    fun getAllMessages(): Flow<List<ChatMessageEntity>>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertMessage(message: ChatMessageEntity): Long
 
