@@ -15,13 +15,12 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class ChatViewModel(
-    private val repository: ChatRepository,
-    private val conversationKey: String
+    private val repository: ChatRepository
 ) : ViewModel() {
 
-    // রুম ডাটাবেস থেকে রিয়েল-টাইম মেসেজ স্ট্রিম
+    // ফিল্টার ছাড়া সব ইনকামিং ও আউটগোয়িং মেসেজ পর্যবেক্ষণ
     val messages: StateFlow<List<ChatMessageEntity>> = repository
-        .observeMessages(conversationKey)
+        .observeAllMessages()
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -31,7 +30,7 @@ class ChatViewModel(
     private val _replyResult = MutableSharedFlow<ReplyResult>()
     val replyResult: SharedFlow<ReplyResult> = _replyResult.asSharedFlow()
 
-    fun sendDirectReply(packageName: String, senderName: String, replyText: String) {
+    fun sendDirectReply(conversationKey: String, packageName: String, senderName: String, replyText: String) {
         if (replyText.isBlank()) return
 
         viewModelScope.launch {
@@ -47,13 +46,12 @@ class ChatViewModel(
 }
 
 class ChatViewModelFactory(
-    private val repository: ChatRepository,
-    private val conversationKey: String
+    private val repository: ChatRepository
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ChatViewModel::class.java)) {
-            return ChatViewModel(repository, conversationKey) as T
+            return ChatViewModel(repository) as T
         }
         throw IllegalArgumentException("অপরিচিত ViewModel ক্লাস")
     }
