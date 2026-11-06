@@ -96,7 +96,8 @@ interface ChatDao {
     suspend fun clearAllMessages()
 }
 
-@Database(entities = [ChatMessageEntity::class], version = 1, exportSchema = false)
+// ডাটাবেস ভার্সন ২ সেট করা হয়েছে
+@Database(entities = [ChatMessageEntity::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun chatDao(): ChatDao
 
