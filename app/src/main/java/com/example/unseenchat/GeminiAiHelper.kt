@@ -5,8 +5,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 object GeminiAiHelper {
-    // এখানে ডাবল কোটেশনের ভেতরে আপনার কপি করা মূল API Key বসান
-    private const val API_KEY = "এখানে_কপি_করা_KEY_পেস্ট_করুন"
+    private const val API_KEY = "AIzaSyAY8f-ah3IOG_-Cnd6yUX_Qqcg_e85NpbY"
 
     private val generativeModel by lazy {
         GenerativeModel(
