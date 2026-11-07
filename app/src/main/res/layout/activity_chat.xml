@@ -1,23 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#EFEAE2"
-    android:orientation="vertical">
+    android:background="#EFEAE2">
 
-    <!-- চ্যাট হেডার -->
+    <!-- হেডার বার -->
     <LinearLayout
+        android:id="@+id/headerBar"
         android:layout_width="match_parent"
         android:layout_height="56dp"
         android:background="#00A884"
         android:gravity="center_vertical"
-        android:paddingHorizontal="16dp">
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp"
+        app:layout_constraintTop_toTopOf="parent">
 
         <TextView
             android:id="@+id/tvChatTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Chat"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold" />
@@ -25,41 +27,43 @@
 
     <!-- মেসেজ লিস্ট -->
     <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rvChatMessages"
+        android:id="@+id/rvMessages"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
         android:clipToPadding="false"
-        android:padding="8dp" />
+        android:padding="8dp"
+        app:layout_constraintBottom_toTopOf="@id/layoutInputBar"
+        app:layout_constraintTop_toBottomOf="@id/headerBar" />
 
-    <!-- রিপ্লাই ইনপুট বার -->
+    <!-- মেসেজ ইনপুট বার -->
     <LinearLayout
+        android:id="@+id/layoutInputBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="#FFFFFF"
-        android:elevation="4dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:padding="8dp">
+        android:padding="8dp"
+        app:layout_constraintBottom_toBottomOf="parent">
 
         <EditText
-            android:id="@+id/etReplyMessage"
+            android:id="@+id/etMessageInput"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:background="@android:color/transparent"
-            android:hint="অফলাইনে থেকেই রিপ্লাই লিখুন..."
-            android:padding="10dp"
-            android:textColor="#111111"
-            android:textSize="15sp" />
+            android:hint="Type a message..."
+            android:maxLines="4"
+            android:padding="8dp"
+            android:textSize="16sp" />
 
-        <Button
-            android:id="@+id/btnSendReply"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:backgroundTint="#00A884"
-            android:text="SEND"
-            android:textColor="#FFFFFF" />
+        <ImageButton
+            android:id="@+id/btnSend"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_send"
+            app:tint="#00A884" />
     </LinearLayout>
 
-</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>
