@@ -1,58 +1,33 @@
 package com.example.unseenchat.ui
 
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.unseenchat.data.cache.ReplyResult
+import com.example.unseenchat.data.local.AppDatabase
 import com.example.unseenchat.data.local.ChatMessageEntity
 import com.example.unseenchat.data.repository.ChatRepository
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 
-class ChatViewModel(
-    private val repository: ChatRepository
-) : ViewModel() {
+class ChatViewModel(application: Application) : AndroidViewModel(application) {
 
-    // ফিল্টার ছাড়া সব ইনকামিং ও আউটগোয়িং মেসেজ পর্যবেক্ষণ
-    val messages: StateFlow<List<ChatMessageEntity>> = repository
-        .observeAllMessages()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    private val database = AppDatabase.getInstance(application)
+    private val repository = ChatRepository(application)
 
-    private val _replyResult = MutableSharedFlow<ReplyResult>()
-    val replyResult: SharedFlow<ReplyResult> = _replyResult.asSharedFlow()
-
-    fun sendDirectReply(conversationKey: String, packageName: String, senderName: String, replyText: String) {
-        if (replyText.isBlank()) return
-
-        viewModelScope.launch {
-            val result = repository.sendReply(
-                conversationKey = conversationKey,
-                packageName = packageName,
-                senderName = senderName,
-                replyText = replyText.trim()
-            )
-            _replyResult.emit(result)
-        }
+    fun getMessages(conversationKey: String): Flow<List<ChatMessageEntity>> {
+        return database.chatDao().getMessagesForConversation(conversationKey)
     }
-}
 
-class ChatViewModelFactory(
-    private val repository: ChatRepository
-) : ViewModelProvider.Factory {
-    @Suppress("UNCHECKED_CAST")
-    override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(ChatViewModel::class.java)) {
-            return ChatViewModel(repository) as T
+    fun sendMessage(
+        conversationKey: String,
+        packageName: String,
+        senderName: String,
+        text: String,
+        onResult: (Boolean) -> Unit
+    ) {
+        viewModelScope.launch {
+            val success = repository.sendReply(conversationKey, packageName, senderName, text)
+            onResult(success)
         }
-        throw IllegalArgumentException("অপরিচিত ViewModel ক্লাস")
     }
 }
