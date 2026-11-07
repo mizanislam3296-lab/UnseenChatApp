@@ -20,7 +20,6 @@ class UnseenNotificationService : NotificationListenerService() {
     private val database by lazy { AppDatabase.getInstance(applicationContext) }
 
     companion object {
-        // সমর্থিত সোশ্যাল প্ল্যাটফর্মসমূহ
         val SUPPORTED_PACKAGES = setOf(
             "com.whatsapp",            // WhatsApp
             "com.whatsapp.w4b",        // WhatsApp Business
@@ -40,18 +39,27 @@ class UnseenNotificationService : NotificationListenerService() {
         val notification = sbn.notification ?: return
         val extras = notification.extras ?: return
 
-        val rawTitle = extras.getString(Notification.EXTRA_TITLE) ?: ""
-        if (rawTitle.isBlank()) return
-        val title = rawTitle.trim()
+        // getCharSequence ব্যবহার করা হয়েছে যাতে Messenger/WhatsApp-এর স্প্যান টেক্সট নাল না হয়
+        val rawTitle = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()?.trim()
+            ?: extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString()?.trim()
+            ?: ""
 
-        // প্ল্যাটফর্ম ও প্রেরকের নাম দিয়ে নির্দিষ্ট Conversation Key তৈরি
+        val messagingStyle = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
+
+        val title = if (rawTitle.isNotEmpty()) {
+            rawTitle
+        } else {
+            messagingStyle?.conversationTitle?.toString()?.trim()
+                ?: messagingStyle?.messages?.firstOrNull()?.person?.name?.toString()?.trim()
+                ?: "Chat"
+        }
+
+        if (title.isBlank()) return
+
         val conversationKey = "${packageName}_${title}"
 
         // ডাইরেক্ট রিপ্লাই কি-ক্যাশ করা
         cacheDirectReply(conversationKey, notification)
-
-        // MessagingStyle থেকে একাধিক মেসেজ পার্স করা
-        val messagingStyle = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification)
 
         serviceScope.launch {
             if (messagingStyle != null && messagingStyle.messages.isNotEmpty()) {
@@ -81,8 +89,9 @@ class UnseenNotificationService : NotificationListenerService() {
                     }
                 }
             } else {
-                // সাধারণ নোটিফিকেশন ফলব্যাক
                 val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim()
+                    ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()?.trim()
+
                 if (!text.isNullOrBlank()) {
                     val time = notification.`when`.takeIf { it > 0 } ?: System.currentTimeMillis()
                     val mediaType = if (text.contains("Voice message", ignoreCase = true) || text.contains("ভয়েস", ignoreCase = true)) {
@@ -124,7 +133,6 @@ class UnseenNotificationService : NotificationListenerService() {
             }
         }
 
-        // WearableExtender ফলব্যাক
         val wearableExtender = NotificationCompat.WearableExtender(notification)
         for (action in wearableExtender.actions) {
             val safePendingIntent = action.actionIntent ?: continue
