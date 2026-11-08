@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class UnseenNotificationService : NotificationListenerService() {
@@ -42,16 +43,13 @@ class UnseenNotificationService : NotificationListenerService() {
 
         if (title.isBlank() || text.isBlank()) return
 
-        // গ্রুপ নোটিফিকেশন সামারি বা সিস্টেম স্ট্যাটাস বাদ দেওয়া
         if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
 
         val conversationKey = "${packageName}_$title"
         val timestamp = sbn.postTime
 
-        // ১. রিপ্লাই অ্যাকশন এবং RemoteInput সেশন সেভ করা
         extractAndSaveReplyAction(sbn, conversationKey)
 
-        // ২. ডাটাবেসে মেসেজ সংরক্ষণ করা
         val messageEntity = MessageEntity(
             conversationKey = conversationKey,
             packageName = packageName,
@@ -64,14 +62,19 @@ class UnseenNotificationService : NotificationListenerService() {
         serviceScope.launch {
             database.chatDao().insertMessage(messageEntity)
 
-            // ৩. AI Auto-Reply চেক ও এক্সিকিউট করা
             val prefs = getSharedPreferences("UnseenChatPrefs", Context.MODE_PRIVATE)
-            val isAutoReplyEnabled = prefs.getBoolean("AI_AUTO_REPLY_ENABLED", false)
+            val isOfflineReplyEnabled = prefs.getBoolean("OFFLINE_REPLY_ENABLED", false)
+            val offlineReplyText = prefs.getString("OFFLINE_REPLY_TEXT", "আমি এখন অফলাইনে আছি, ফিরে এসে মেসেজ দেব।") ?: ""
+            val isAiAutoReplyEnabled = prefs.getBoolean("AI_AUTO_REPLY_ENABLED", false)
 
-            if (isAutoReplyEnabled) {
-                // নোটিফিকেশন প্রসেস হওয়ার জন্য সামান্য বিরতি
-                kotlinx.coroutines.delay(1000)
+            delay(1000)
 
+            // ১. যদি অফলাইন রিপ্লাই অন থাকে, তবে আপনার কাস্টম টেক্সট পাঠানো হবে
+            if (isOfflineReplyEnabled && offlineReplyText.isNotBlank()) {
+                repository.sendReply(conversationKey, packageName, title, offlineReplyText)
+            } 
+            // ২. অন্যথায় যদি AI অটো রিপ্লাই অন থাকে, তবে জেমিনি AI উত্তর দেবে
+            else if (isAiAutoReplyEnabled) {
                 val aiReply = GeminiAiHelper.getAutoReplyText(text)
                 if (!aiReply.isNullOrBlank()) {
                     repository.sendReply(conversationKey, packageName, title, aiReply)
