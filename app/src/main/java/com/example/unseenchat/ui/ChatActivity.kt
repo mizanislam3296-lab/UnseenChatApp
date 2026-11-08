@@ -2,6 +2,7 @@ package com.example.unseenchat.ui
 
 import android.app.AlertDialog
 import android.content.Context
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
 import android.view.View
@@ -12,7 +13,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.appcompat.widget.SwitchCompat
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -25,11 +28,15 @@ import kotlinx.coroutines.launch
 
 class ChatActivity : AppCompatActivity() {
 
+    private lateinit var rootChatLayout: ConstraintLayout
+    private lateinit var headerBar: LinearLayout
+    private lateinit var layoutInputBar: LinearLayout
     private lateinit var rvMessages: RecyclerView
     private lateinit var etMessage: EditText
     private lateinit var btnSend: ImageButton
     private lateinit var btnAiGenerate: Button
     private lateinit var btnOfflineSettings: Button
+    private lateinit var btnThemeToggle: Button
     private lateinit var switchAutoReply: SwitchCompat
     private lateinit var tvChatTitle: TextView
     private lateinit var layoutSuggestions: View
@@ -45,6 +52,7 @@ class ChatActivity : AppCompatActivity() {
     private var lastIncomingMessage: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        applySavedThemeMode()
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_chat)
 
@@ -53,17 +61,22 @@ class ChatActivity : AppCompatActivity() {
         senderName = intent.getStringExtra("EXTRA_SENDER_NAME") ?: "Chat"
 
         initViews()
+        applyDynamicColors()
         setupRecyclerView()
         observeMessages()
         setupListeners()
     }
 
     private fun initViews() {
+        rootChatLayout = findViewById(R.id.rootChatLayout)
+        headerBar = findViewById(R.id.headerBar)
+        layoutInputBar = findViewById(R.id.layoutInputBar)
         rvMessages = findViewById(R.id.rvMessages)
         etMessage = findViewById(R.id.etMessageInput)
         btnSend = findViewById(R.id.btnSend)
         btnAiGenerate = findViewById(R.id.btnAiGenerate)
         btnOfflineSettings = findViewById(R.id.btnOfflineSettings)
+        btnThemeToggle = findViewById(R.id.btnThemeToggle)
         switchAutoReply = findViewById(R.id.switchAutoReply)
         tvChatTitle = findViewById(R.id.tvChatTitle)
         layoutSuggestions = findViewById(R.id.layoutSuggestions)
@@ -73,6 +86,50 @@ class ChatActivity : AppCompatActivity() {
 
         val prefs = getSharedPreferences("UnseenChatPrefs", Context.MODE_PRIVATE)
         switchAutoReply.isChecked = prefs.getBoolean("AI_AUTO_REPLY_ENABLED", false)
+    }
+
+    private fun applySavedThemeMode() {
+        val prefs = getSharedPreferences("UnseenChatPrefs", Context.MODE_PRIVATE)
+        when (prefs.getInt("APP_THEME_MODE", 2)) {
+            0 -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+            1 -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        }
+    }
+
+    private fun isDarkModeActive(): Boolean {
+        val prefs = getSharedPreferences("UnseenChatPrefs", Context.MODE_PRIVATE)
+        val savedMode = prefs.getInt("APP_THEME_MODE", 2)
+        return when (savedMode) {
+            1 -> true
+            0 -> false
+            else -> {
+                val nightModeFlags = resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+                nightModeFlags == Configuration.UI_MODE_NIGHT_YES
+            }
+        }
+    }
+
+    private fun applyDynamicColors() {
+        if (isDarkModeActive()) {
+            // ডার্ক মোড কালার (WhatsApp Dark Style)
+            rootChatLayout.setBackgroundColor(Color.parseColor("#0B141A"))
+            headerBar.setBackgroundColor(Color.parseColor("#1F2C34"))
+            layoutInputBar.setBackgroundColor(Color.parseColor("#1F2C34"))
+            layoutSuggestions.setBackgroundColor(Color.parseColor("#182229"))
+            etMessage.setTextColor(Color.parseColor("#E9EDEF"))
+            etMessage.setHintTextColor(Color.parseColor("#8696A0"))
+            btnThemeToggle.text = "☀️"
+        } else {
+            // ডে (লাইট) মোড কালার
+            rootChatLayout.setBackgroundColor(Color.parseColor("#EFEAE2"))
+            headerBar.setBackgroundColor(Color.parseColor("#00A884"))
+            layoutInputBar.setBackgroundColor(Color.parseColor("#FFFFFF"))
+            layoutSuggestions.setBackgroundColor(Color.parseColor("#E0E0E0"))
+            etMessage.setTextColor(Color.parseColor("#111B21"))
+            etMessage.setHintTextColor(Color.parseColor("#8696A0"))
+            btnThemeToggle.text = "🌙"
+        }
     }
 
     private fun setupRecyclerView() {
@@ -100,7 +157,7 @@ class ChatActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
-        // ১. AI অটো রিপ্লাই টগল সুইচ
+        // ১. AI অটো রিপ্লাই সুইচ
         switchAutoReply.setOnCheckedChangeListener { _, isChecked ->
             val prefs = getSharedPreferences("UnseenChatPrefs", Context.MODE_PRIVATE)
             prefs.edit().putBoolean("AI_AUTO_REPLY_ENABLED", isChecked).apply()
@@ -108,12 +165,17 @@ class ChatActivity : AppCompatActivity() {
             Toast.makeText(this, stateText, Toast.LENGTH_SHORT).show()
         }
 
-        // ২. অফলাইন মেসেজ সেট করার ডায়ালগ পপ-আপ
+        // ২. অফলাইন মেসেজ সেটিংস ডায়ালগ
         btnOfflineSettings.setOnClickListener {
             showOfflineSettingsDialog()
         }
 
-        // ৩. ✨ AI বাটনে চাপ দিয়ে স্মার্ট সাজেশন পাওয়া
+        // ৩. ডার্ক ও ডে মোড থিম পরিবর্তন ডায়ালগ
+        btnThemeToggle.setOnClickListener {
+            showThemeSelectionDialog()
+        }
+
+        // ৪. ✨ AI বাটন ক্লিক করে সাজেশন তৈরি
         btnAiGenerate.setOnClickListener {
             if (lastIncomingMessage.isBlank()) {
                 Toast.makeText(this, "উত্তর দেওয়ার মতো মেসেজ নেই!", Toast.LENGTH_SHORT).show()
@@ -128,13 +190,14 @@ class ChatActivity : AppCompatActivity() {
 
                 if (suggestions.isNotEmpty()) {
                     layoutSuggestions.visibility = View.VISIBLE
+                    val dark = isDarkModeActive()
                     for (replyText in suggestions) {
                         val btn = Button(this@ChatActivity).apply {
                             text = replyText
                             textSize = 12f
                             isAllCaps = false
-                            setBackgroundColor(Color.parseColor("#FFFFFF"))
-                            setTextColor(Color.parseColor("#00796B"))
+                            setBackgroundColor(if (dark) Color.parseColor("#2A3942") else Color.parseColor("#FFFFFF"))
+                            setTextColor(if (dark) Color.parseColor("#00A884") else Color.parseColor("#00796B"))
                             setPadding(20, 6, 20, 6)
                             setOnClickListener {
                                 etMessage.setText(replyText)
@@ -154,7 +217,7 @@ class ChatActivity : AppCompatActivity() {
             }
         }
 
-        // ৪. সেন্ড বাটন
+        // ৫. সেন্ড বাটন
         btnSend.setOnClickListener {
             val text = etMessage.text.toString().trim()
             if (text.isEmpty()) return@setOnClickListener
@@ -173,6 +236,28 @@ class ChatActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun showThemeSelectionDialog() {
+        val prefs = getSharedPreferences("UnseenChatPrefs", Context.MODE_PRIVATE)
+        val currentTheme = prefs.getInt("APP_THEME_MODE", 2)
+        val themes = arrayOf("☀️ ডে মোড (Light)", "🌙 ডার্ক মোড (Dark)", "📱 সিস্টেম ডিফল্ট (System)")
+
+        AlertDialog.Builder(this)
+            .setTitle("থিম সেট করুন")
+            .setSingleChoiceItems(themes, currentTheme) { dialog, which ->
+                prefs.edit().putInt("APP_THEME_MODE", which).apply()
+                when (which) {
+                    0 -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+                    1 -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+                    else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+                }
+                applyDynamicColors()
+                dialog.dismiss()
+                recreate()
+            }
+            .setNegativeButton("বাতিল", null)
+            .show()
     }
 
     private fun showOfflineSettingsDialog() {
