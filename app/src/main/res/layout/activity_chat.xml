@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:background="#EFEAE2">
 
-    <!-- হেডার বার ও অটো-রিপ্লাই টগল -->
+    <!-- হেডার বার -->
     <LinearLayout
         android:id="@+id/headerBar"
         android:layout_width="match_parent"
@@ -13,7 +13,7 @@
         android:background="#00A884"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingHorizontal="16dp"
+        android:paddingHorizontal="12dp"
         app:layout_constraintTop_toTopOf="parent">
 
         <TextView
@@ -21,22 +21,37 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
             android:textColor="#FFFFFF"
-            android:textSize="18sp"
+            android:textSize="17sp"
             android:textStyle="bold" />
 
+        <!-- AI অটো রিপ্লাই সুইচ -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="AI Auto"
+            android:text="AI"
             android:textColor="#FFFFFF"
             android:textSize="12sp"
-            android:layout_marginEnd="6dp" />
+            android:layout_marginEnd="4dp" />
 
         <androidx.appcompat.widget.SwitchCompat
             android:id="@+id/switchAutoReply"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content" />
+
+        <!-- কাস্টম অফলাইন মেসেজ বাটন -->
+        <Button
+            android:id="@+id/btnOfflineSettings"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:backgroundTint="#00897B"
+            android:text="💬 অফলাইন"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:paddingHorizontal="8dp"
+            android:layout_marginStart="6dp" />
     </LinearLayout>
 
     <!-- মেসেজ লিস্ট -->
@@ -79,7 +94,6 @@
         android:padding="6dp"
         app:layout_constraintBottom_toBottomOf="parent">
 
-        <!-- ম্যানুয়াল AI সাজেশন বাটন -->
         <Button
             android:id="@+id/btnAiGenerate"
             android:layout_width="wrap_content"
