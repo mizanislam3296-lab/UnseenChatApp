@@ -1,5 +1,6 @@
 package com.example.unseenchat.ui
 
+import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Color
 import android.os.Bundle
@@ -28,6 +29,7 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var etMessage: EditText
     private lateinit var btnSend: ImageButton
     private lateinit var btnAiGenerate: Button
+    private lateinit var btnOfflineSettings: Button
     private lateinit var switchAutoReply: SwitchCompat
     private lateinit var tvChatTitle: TextView
     private lateinit var layoutSuggestions: View
@@ -61,6 +63,7 @@ class ChatActivity : AppCompatActivity() {
         etMessage = findViewById(R.id.etMessageInput)
         btnSend = findViewById(R.id.btnSend)
         btnAiGenerate = findViewById(R.id.btnAiGenerate)
+        btnOfflineSettings = findViewById(R.id.btnOfflineSettings)
         switchAutoReply = findViewById(R.id.switchAutoReply)
         tvChatTitle = findViewById(R.id.tvChatTitle)
         layoutSuggestions = findViewById(R.id.layoutSuggestions)
@@ -68,7 +71,6 @@ class ChatActivity : AppCompatActivity() {
 
         tvChatTitle.text = senderName
 
-        // সংরক্ষিত অটো রিপ্লাই সেটিং রিড করা
         val prefs = getSharedPreferences("UnseenChatPrefs", Context.MODE_PRIVATE)
         switchAutoReply.isChecked = prefs.getBoolean("AI_AUTO_REPLY_ENABLED", false)
     }
@@ -89,7 +91,6 @@ class ChatActivity : AppCompatActivity() {
                     }
                 }
 
-                // সর্বশেষ ইনকামিং টেক্সট মেসেজ ট্র্যাক করা
                 val incoming = list.lastOrNull { !it.isOutgoing }
                 if (incoming != null) {
                     lastIncomingMessage = incoming.messageText
@@ -99,7 +100,7 @@ class ChatActivity : AppCompatActivity() {
     }
 
     private fun setupListeners() {
-        // ১. অটো রিপ্লাই সুইচ পরিবর্তন
+        // ১. AI অটো রিপ্লাই টগল সুইচ
         switchAutoReply.setOnCheckedChangeListener { _, isChecked ->
             val prefs = getSharedPreferences("UnseenChatPrefs", Context.MODE_PRIVATE)
             prefs.edit().putBoolean("AI_AUTO_REPLY_ENABLED", isChecked).apply()
@@ -107,7 +108,12 @@ class ChatActivity : AppCompatActivity() {
             Toast.makeText(this, stateText, Toast.LENGTH_SHORT).show()
         }
 
-        // ২. ✨ AI বাটনে চাপ দিয়ে ম্যানুয়াল সাজেশন আনা
+        // ২. অফলাইন মেসেজ সেট করার ডায়ালগ পপ-আপ
+        btnOfflineSettings.setOnClickListener {
+            showOfflineSettingsDialog()
+        }
+
+        // ৩. ✨ AI বাটনে চাপ দিয়ে স্মার্ট সাজেশন পাওয়া
         btnAiGenerate.setOnClickListener {
             if (lastIncomingMessage.isBlank()) {
                 Toast.makeText(this, "উত্তর দেওয়ার মতো মেসেজ নেই!", Toast.LENGTH_SHORT).show()
@@ -148,7 +154,7 @@ class ChatActivity : AppCompatActivity() {
             }
         }
 
-        // ৩. সেন্ড বাটনে ক্লিক করে মেসেজ পাঠানো
+        // ৪. সেন্ড বাটন
         btnSend.setOnClickListener {
             val text = etMessage.text.toString().trim()
             if (text.isEmpty()) return@setOnClickListener
@@ -167,5 +173,49 @@ class ChatActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun showOfflineSettingsDialog() {
+        val prefs = getSharedPreferences("UnseenChatPrefs", Context.MODE_PRIVATE)
+        val isEnabled = prefs.getBoolean("OFFLINE_REPLY_ENABLED", false)
+        val savedText = prefs.getString("OFFLINE_REPLY_TEXT", "আমি এখন অফলাইনে আছি, ফিরে এসে মেসেজ দেব।")
+
+        val layout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(50, 40, 50, 20)
+        }
+
+        val switchView = SwitchCompat(this).apply {
+            text = "অফলাইন রিপ্লাই চালু রাখুন"
+            isChecked = isEnabled
+            textSize = 15f
+        }
+
+        val input = EditText(this).apply {
+            hint = "আপনার কাস্টম মেসেজ লিখুন..."
+            setText(savedText)
+            textSize = 14f
+            setPadding(0, 30, 0, 20)
+        }
+
+        layout.addView(switchView)
+        layout.addView(input)
+
+        AlertDialog.Builder(this)
+            .setTitle("অফলাইন কাস্টম মেসেজ")
+            .setView(layout)
+            .setPositiveButton("সেভ করুন") { _, _ ->
+                val newText = input.text.toString().trim()
+                val newEnabled = switchView.isChecked
+                prefs.edit()
+                    .putBoolean("OFFLINE_REPLY_ENABLED", newEnabled)
+                    .putString("OFFLINE_REPLY_TEXT", if (newText.isEmpty()) "আমি এখন অফলাইনে আছি।" else newText)
+                    .apply()
+
+                val status = if (newEnabled) "চালু হয়েছে" else "বন্ধ করা হয়েছে"
+                Toast.makeText(this, "অফলাইন রিপ্লাই $status", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("বাতিল", null)
+            .show()
     }
 }
