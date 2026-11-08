@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:background="#EFEAE2">
 
-    <!-- হেডার বার -->
+    <!-- হেডার বার ও অটো-রিপ্লাই টগল -->
     <LinearLayout
         android:id="@+id/headerBar"
         android:layout_width="match_parent"
@@ -18,11 +18,25 @@
 
         <TextView
             android:id="@+id/tvChatTitle"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
             android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="AI Auto"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:layout_marginEnd="6dp" />
+
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/switchAutoReply"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
     </LinearLayout>
 
     <!-- মেসেজ লিস্ট -->
@@ -32,8 +46,27 @@
         android:layout_height="0dp"
         android:clipToPadding="false"
         android:padding="8dp"
-        app:layout_constraintBottom_toTopOf="@id/layoutInputBar"
+        app:layout_constraintBottom_toTopOf="@id/layoutSuggestions"
         app:layout_constraintTop_toBottomOf="@id/headerBar" />
+
+    <!-- ম্যানুয়াল AI সাজেশন বাটন বার -->
+    <HorizontalScrollView
+        android:id="@+id/layoutSuggestions"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#E0E0E0"
+        android:padding="6dp"
+        android:scrollbars="none"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/layoutInputBar">
+
+        <LinearLayout
+            android:id="@+id/containerSuggestions"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal" />
+    </HorizontalScrollView>
 
     <!-- মেসেজ ইনপুট বার -->
     <LinearLayout
@@ -43,8 +76,20 @@
         android:background="#FFFFFF"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:padding="8dp"
+        android:padding="6dp"
         app:layout_constraintBottom_toBottomOf="parent">
+
+        <!-- ম্যানুয়াল AI সাজেশন বাটন -->
+        <Button
+            android:id="@+id/btnAiGenerate"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            android:backgroundTint="#00A884"
+            android:text="✨ AI"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:paddingHorizontal="10dp" />
 
         <EditText
             android:id="@+id/etMessageInput"
@@ -55,12 +100,12 @@
             android:hint="Type a message..."
             android:maxLines="4"
             android:padding="8dp"
-            android:textSize="16sp" />
+            android:textSize="15sp" />
 
         <ImageButton
             android:id="@+id/btnSend"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_menu_send"
             app:tint="#00A884" />
