@@ -1,22 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.example.unseenchat">
+    xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- WhatsApp Voice Note ও Media ফোল্ডার পর্যবেক্ষণের পারমিশন -->
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+    <!-- Gemini AI ও ইন্টারনেট পারমিশন -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- নোটিফিকেশন পারমিশন -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
-        android:icon="@drawable/ic_launcher"
-        android:roundIcon="@drawable/ic_launcher"
-        android:label="Unseen Chat"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+        android:theme="@style/Theme.MaterialComponents.DayNight.NoActionBar"
+        android:usesCleartextTraffic="true"
+        tools:targetApi="34">
 
-        <!-- ১. মূল স্ক্রিন (প্ল্যাটফর্ম ট্যাব ও চ্যাট তালিকা) -->
+        <!-- মেইন হোম স্ক্রিন অ্যাক্টিভিটি -->
         <activity
             android:name=".ui.MainActivity"
             android:exported="true">
@@ -26,17 +29,18 @@
             </intent-filter>
         </activity>
 
-        <!-- ২. নির্দিষ্ট ব্যক্তির সাথে চ্যাট স্ক্রিন -->
+        <!-- চ্যাট স্ক্রিন অ্যাক্টিভিটি -->
         <activity
             android:name=".ui.ChatActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
 
-        <!-- ৩. নোটিফিকেশন লিসেনার সার্ভিস -->
+        <!-- নোটিফিকেশন রিড ও রিপ্লাই সার্ভিস -->
         <service
             android:name=".service.UnseenNotificationService"
-            android:label="Unseen Direct Reply Service"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
-            android:exported="true">
+            android:exported="true"
+            android:label="@string/app_name"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
