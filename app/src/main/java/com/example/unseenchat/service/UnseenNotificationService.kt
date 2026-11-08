@@ -7,8 +7,11 @@ import android.service.notification.StatusBarNotification
 import androidx.core.app.NotificationCompat
 import androidx.core.app.RemoteInput
 import com.example.unseenchat.ai.GeminiAiHelper
+import com.example.unseenchat.data.cache.ReplyActionCache
+import com.example.unseenchat.data.cache.ReplyActionPayload
 import com.example.unseenchat.data.local.AppDatabase
-import com.example.unseenchat.data.local.MessageEntity
+import com.example.unseenchat.data.local.ChatMessageEntity
+import com.example.unseenchat.data.local.MediaType
 import com.example.unseenchat.data.repository.ChatRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -43,20 +46,24 @@ class UnseenNotificationService : NotificationListenerService() {
 
         if (title.isBlank() || text.isBlank()) return
 
+        // গ্রুপ নোটিফিকেশন সামারি বাদ দেওয়া
         if (sbn.notification.flags and Notification.FLAG_GROUP_SUMMARY != 0) return
 
         val conversationKey = "${packageName}_$title"
         val timestamp = sbn.postTime
 
+        // ১. রিপ্লাই অ্যাকশন ক্যাশে সংরক্ষণ করা
         extractAndSaveReplyAction(sbn, conversationKey)
 
-        val messageEntity = MessageEntity(
+        // ২. ডাটাবেসে ইনকামিং মেসেজ সেভ করা
+        val messageEntity = ChatMessageEntity(
             conversationKey = conversationKey,
             packageName = packageName,
             senderName = title,
             messageText = text,
             timestamp = timestamp,
-            isOutgoing = false
+            isOutgoing = false,
+            mediaType = MediaType.TEXT
         )
 
         serviceScope.launch {
@@ -69,12 +76,10 @@ class UnseenNotificationService : NotificationListenerService() {
 
             delay(1000)
 
-            // ১. যদি অফলাইন রিপ্লাই অন থাকে, তবে আপনার কাস্টম টেক্সট পাঠানো হবে
+            // ৩. অফলাইন মেসেজ অথবা AI অটো রিপ্লাই পাঠানো
             if (isOfflineReplyEnabled && offlineReplyText.isNotBlank()) {
                 repository.sendReply(conversationKey, packageName, title, offlineReplyText)
-            } 
-            // ২. অন্যথায় যদি AI অটো রিপ্লাই অন থাকে, তবে জেমিনি AI উত্তর দেবে
-            else if (isAiAutoReplyEnabled) {
+            } else if (isAiAutoReplyEnabled) {
                 val aiReply = GeminiAiHelper.getAutoReplyText(text)
                 if (!aiReply.isNullOrBlank()) {
                     repository.sendReply(conversationKey, packageName, title, aiReply)
@@ -88,9 +93,17 @@ class UnseenNotificationService : NotificationListenerService() {
         for (i in 0 until actions) {
             val action = NotificationCompat.getAction(sbn.notification, i) ?: continue
             val remoteInputs = action.remoteInputs ?: continue
+            val pendingIntent = action.actionIntent ?: continue
+
             for (remoteInput in remoteInputs) {
                 if (remoteInput.allowFreeFormInput) {
-                    ChatRepository.replyActionMap[conversationKey] = action
+                    ReplyActionCache.putReplyAction(
+                        conversationKey,
+                        ReplyActionPayload(
+                            pendingIntent = pendingIntent,
+                            remoteInputs = remoteInputs
+                        )
+                    )
                     return
                 }
             }
